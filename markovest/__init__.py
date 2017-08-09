@@ -60,7 +60,7 @@ class Chain(object):
                 self._tuple_to_text_id[prev].add(text_id)
         self._tuple_to_text_id[words].add(text_id)
         return self
-    
+
     def make_sentences(self, count=1, retries=100):
         for _ignored in range(retries):
             words = random.choice(tuple(self._starts))
@@ -74,7 +74,8 @@ class Chain(object):
                     break
                 words = words + key[-1:]
                 if key in self._ends:
-                    if detokenizer.detokenize(words[prev_sentence_end:],
+                    if detokenizer.detokenize(
+                            words[prev_sentence_end:],
                             return_str=True) in self._seen_sentences:
                         break
                     prev_sentence_end = len(words)
