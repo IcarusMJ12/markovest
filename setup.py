@@ -9,4 +9,5 @@ setup(name='markovest',
       author='Igor Kaplounenko',
       author_email='megawidget@gmail.com',
       url='https://github.com/megawidget/markovest',
-      packages=['markovest'])
+      packages=['markovest'],
+      scripts=['bin/markovest'])

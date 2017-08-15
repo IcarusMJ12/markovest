@@ -3,6 +3,7 @@
 import random
 from collections import defaultdict
 import pickle
+from builtins import open
 
 from nltk import sent_tokenize, word_tokenize
 from nltk.tokenize.moses import MosesDetokenizer
@@ -40,7 +41,7 @@ class Chain(object):
     def _update_key(self, key, word):
         return key[-(self._link_size-1):] + (word,)
 
-    def add_text(self, text, text_id):
+    def add_text(self, text, text_id=0):
         text = [tuple(word_tokenize(sent)) for sent in sent_tokenize(text)]
         for sent in text:
             self._seen_sentences.add(
@@ -60,6 +61,9 @@ class Chain(object):
                 self._tuple_to_text_id[prev].add(text_id)
         self._tuple_to_text_id[words].add(text_id)
         return self
+
+    def make_sentence(self, retries=100):
+        return self.make_sentences(retries=retries)
 
     def make_sentences(self, count=1, retries=100):
         for _ignored in range(retries):
@@ -83,19 +87,3 @@ class Chain(object):
                     if sent_count == count:
                         return detokenizer.detokenize(words, return_str=True)
         raise MaximumRetriesReachedError()
-
-
-def main():
-    pickled = 'interface.pickle'
-    try:
-        c = Chain.load(pickled)
-    except FileNotFoundError:
-        with open('interface.txt', 'r') as f:
-            string = f.read()
-        c = Chain().add_text(string, 0)
-        c.save(pickled)
-    print(c.make_sentences(3))
-
-
-if __name__ == '__main__':
-    main()
