@@ -55,7 +55,7 @@ class Word(str):
 
 
 class Chain(object):
-    def __init__(self, link_size=3, seed=None):
+    def __init__(self, link_size=2, seed=None):
         assert link_size >= 1
         random.seed(seed)
         self._link_size = link_size
