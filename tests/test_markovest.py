@@ -10,6 +10,11 @@ from markovest import Chain, MaximumRetriesReachedError
 SHORTEST_TEXT = 'This is a sentence.'
 SHORTEST_COLORED_TEXT = '\x1b[0m\x1b[31mThis \x1b[31mis \x1b[31ma ' + \
                         '\x1b[31msentence\x1b[31m.\x1b[0m'
+ADDED_TEXT = 'a sentence. And this is another.'
+COMBINED_COLORED_TEXT = '\x1b[0m\x1b[31mThis \x1b[31mis \x1b[31ma ' + \
+                        '\x1b[31msentence\x1b[33m. \x1b[32mAnd ' + \
+                        '\x1b[32mthis \x1b[32mis \x1b[32manother' + \
+                        '\x1b[32m.\x1b[0m'
 
 
 @pytest.fixture
@@ -67,3 +72,12 @@ def test_index_error(ch, monkeypatch):
     monkeypatch.setattr(ch, '_seen_sentences', [])
     with pytest.raises(MaximumRetriesReachedError):
         ch.make_sentences(5)
+
+
+def test_combined_text(ch, monkeypatch):
+    ch.add_text(ADDED_TEXT, 1)
+    monkeypatch.setattr(ch, '_seen_sentences', [])
+    monkeypatch.setattr(ch, '_starts', (('This', 'is', 'a'),))
+    sent = ch.make_sentences(2)
+    assert sent == COMBINED_COLORED_TEXT, print(
+            repr(sent) + ' != ' + repr(COMBINED_COLORED_TEXT))
