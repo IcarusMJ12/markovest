@@ -1,26 +1,57 @@
 #!/usr/bin/env python3
 
 import random
+import re
 from collections import defaultdict
 import pickle
 from builtins import open
 
+from ansi.colour.rgb import rgb8
+from ansi.colour.fx import reset
 import nltk
 
 
+# this is really ghetto, but that's how `nltk` works... and it escapes venv
 nltk.download('perluniprops')  # noqa
 nltk.download('punkt')  # noqa
 
 
 from nltk import sent_tokenize, word_tokenize
-from nltk.tokenize.moses import MosesDetokenizer
+from nltk.tokenize import moses
 
 
-detokenizer = MosesDetokenizer()
+# serious shenanigans here -- we want `re.search` to ignore ansi color
+# https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python
+ansi_escape = re.compile(r'\x1b[^m]*m')
+re_search = re.search
+
+
+def re_strip_search(haystack, needle):
+    return re_search(haystack, ansi_escape.sub('', needle))
+
+
+re.search = re_strip_search
+detokenizer = moses.MosesDetokenizer()
 
 
 class MaximumRetriesReachedError(Exception):
     pass
+
+
+class Word(str):
+    __slots__ = ['text_ids']
+
+    def __new__(cls, string, *argv):
+        return super(Word, cls).__new__(cls, string)
+
+    def __init__(self, string, text_ids):
+        self.text_ids = text_ids
+
+    def colorize(self):
+        rgb = [0, 0, 0]
+        for text_id in self.text_ids:
+            rgb[text_id] = 0xff
+        return rgb8(*rgb) + self
 
 
 class Chain(object):
@@ -74,8 +105,8 @@ class Chain(object):
 
     def make_sentences(self, count=1, retries=100):
         for _ignored in range(retries):
-            words = random.choice(tuple(self._starts))
-            key = words
+            key = random.choice(tuple(self._starts))
+            words = [Word(w, self._tuple_to_text_id[key]) for w in key]
             sent_count = 0
             prev_sentence_end = 0
             while True:
@@ -83,7 +114,7 @@ class Chain(object):
                     key = random.choice(tuple(self._tuple_to_nxt[key]))
                 except IndexError:
                     break
-                words = words + key[-1:]
+                words += [Word(key[-1], self._tuple_to_text_id[key])]
                 if key in self._ends:
                     if detokenizer.detokenize(
                             words[prev_sentence_end:],
@@ -92,5 +123,7 @@ class Chain(object):
                     prev_sentence_end = len(words)
                     sent_count += 1
                     if sent_count == count:
-                        return detokenizer.detokenize(words, return_str=True)
+                        return reset(
+                            detokenizer.detokenize([
+                                w.colorize() for w in words], return_str=True))
         raise MaximumRetriesReachedError()

@@ -8,6 +8,8 @@ from markovest import Chain, MaximumRetriesReachedError
 
 
 SHORTEST_TEXT = 'This is a sentence.'
+SHORTEST_COLORED_TEXT = '\x1b[0m\x1b[31mThis \x1b[31mis \x1b[31ma ' + \
+                        '\x1b[31msentence\x1b[31m.\x1b[0m'
 
 
 @pytest.fixture
@@ -56,7 +58,9 @@ def test_load(pickle, fopen):
 
 def test_success(ch, monkeypatch):
     monkeypatch.setattr(ch, '_seen_sentences', [])
-    assert ch.make_sentence() == SHORTEST_TEXT
+    sent = ch.make_sentence()
+    assert sent == SHORTEST_COLORED_TEXT, print(
+            repr(sent) + ' != ' + repr(SHORTEST_COLORED_TEXT))
 
 
 def test_index_error(ch, monkeypatch):
