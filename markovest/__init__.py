@@ -5,6 +5,13 @@ from collections import defaultdict
 import pickle
 from builtins import open
 
+import nltk
+
+
+nltk.download('perluniprops')  # noqa
+nltk.download('punkt')  # noqa
+
+
 from nltk import sent_tokenize, word_tokenize
 from nltk.tokenize.moses import MosesDetokenizer
 

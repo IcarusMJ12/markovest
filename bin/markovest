@@ -16,9 +16,9 @@ def main():
     args = parser.parse_args()
 
     ch = Chain(args.link)
-    for fn in args.files:
+    for opus_id, fn in enumerate(args.files):
         with open(fn, 'r') as f:
-            ch.add_text(f.read())
+            ch.add_text(f.read(), opus_id)
     print(ch.make_sentences(args.sentences))
 
 
