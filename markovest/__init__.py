@@ -129,30 +129,31 @@ class Chain(object):
         self._tuple_to_text_id[words].add(text_id)
         return self
 
-    def make_sentence(self, retries=100):
-        return self.make_sentences(retries=retries)
-
     def _maybe_build_weighings(self):
         if self._weighings is not None:
             return
         self._weighings = defaultdict(lambda: (0, 0))
-        maximum = 0
-        adjustment = 1.0/len(self._itf)
+        adjustment = 0.0001
         for key in self._itf.keys():
             self._itf[key] += adjustment
-            maximum = max((maximum, self._itf[key]))
         for key in self._itf.keys():
             candidates = [self._tfs[i][key] for i in range(len(self._tfs))]
             highest = max(candidates)
-            self._weighings[key] = (candidates.index(highest), highest/maximum)
+            self._weighings[key] = (candidates.index(highest),
+                                    highest/self._itf[key])
 
-    def make_sentences(self, count=1, retries=100):
+    def make_sentence(self, retries=10000):
+        return self.make_sentences(retries=retries)
+
+    def make_sentences(self, count=1, retries=10000):
         self._maybe_build_weighings()
-        for _ignored in range(retries):
-            covered_texts = set()
+        for retry in range(retries):
+            covered_texts = defaultdict(lambda: 0)
             key = random.choice(tuple(self._starts))
-            covered_texts.update(self._tuple_to_text_id[key])
-            words = [Word(w, *self._weighings[w]) for w in key]
+            words = [Word(w, *self._weighings[w.lower()]) for w in key]
+            for word in words:
+                covered_texts[word.text_id] = max(covered_texts[word.text_id],
+                                                  word.intensity)
             sent_count = 0
             prev_sentence_end = 0
             while True:
@@ -160,8 +161,10 @@ class Chain(object):
                     key = random.choice(tuple(self._tuple_to_nxt[key]))
                 except IndexError:
                     break
-                covered_texts.update(self._tuple_to_text_id[key])
-                words += [Word(key[-1], *self._weighings[key[-1]])]
+                word = Word(key[-1], *self._weighings[key[-1].lower()])
+                words += [word]
+                covered_texts[word.text_id] = max(covered_texts[word.text_id],
+                                                  word.intensity)
                 if key in self._ends:
                     if detokenizer.detokenize(
                             words[prev_sentence_end:],
@@ -170,6 +173,10 @@ class Chain(object):
                     prev_sentence_end = len(words)
                     sent_count += 1
                     if sent_count == count:
+                        if len(list(filter(
+                                lambda x: x > 0.9,
+                                covered_texts.values()))) < len(self._tfs):
+                            break
                         return reset(
                             detokenizer.detokenize([
                                 w.colorize() for w in words], return_str=True))

@@ -19,7 +19,8 @@ def main():
     for opus_id, fn in enumerate(args.files):
         with open(fn, 'r') as f:
             ch.add_text(f.read(), opus_id)
-    print(ch.make_sentences(args.sentences))
+    for _ignored in range(args.sentences):
+        print(ch.make_sentence())
 
 
 if __name__ == '__main__':
