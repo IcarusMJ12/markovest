@@ -6,7 +6,7 @@ from collections import defaultdict
 import pickle
 from builtins import open
 
-from ansi.colour.rgb import rgb8
+from ansi.colour.rgb import rgb256
 from ansi.colour.fx import reset
 import nltk
 
@@ -39,26 +39,33 @@ class MaximumRetriesReachedError(Exception):
 
 
 class Word(str):
-    __slots__ = ['text_id', 'intensity']
+    __slots__ = ['text_id', 'intensity', 'threshold']
 
-    def __new__(cls, string, *argv):
+    def __new__(cls, string, *argv, **kw):
         return super(Word, cls).__new__(cls, string)
 
-    def __init__(self, string, text_id, intensity=1):
+    def __init__(self, string, text_id, intensity=1, threshold=1):
         self.text_id = text_id
         self.intensity = intensity
+        self.threshold = threshold
 
     def colorize(self):
         rgb = [0, 0, 0]
-        if self.intensity > 0:
+        if self.intensity < 0.5:
+            rgb = [0xaa, 0xaa, 0xaa]
+        elif self.intensity < self.threshold:
+            rgb = [0x55, 0x55, 0x55]
+        if self.intensity > 0.01:
             rgb[self.text_id] = 0xff
         else:
             rgb = [0xff, 0xff, 0xff]
-        return rgb8(*rgb) + self
+        return rgb256(*rgb) + self
 
 
 class Chain(object):
-    def __init__(self, link_size=2, seed=None):
+    _VERSION = 1
+
+    def __init__(self, link_size=3, seed=None):
         assert link_size >= 1
         random.seed(seed)
         self._link_size = link_size
@@ -133,7 +140,7 @@ class Chain(object):
         if self._weighings is not None:
             return
         self._weighings = defaultdict(lambda: (0, 0))
-        adjustment = 0.0001
+        adjustment = 0.00001
         for key in self._itf.keys():
             self._itf[key] += adjustment
         for key in self._itf.keys():
@@ -142,15 +149,16 @@ class Chain(object):
             self._weighings[key] = (candidates.index(highest),
                                     highest/self._itf[key])
 
-    def make_sentence(self, retries=10000):
-        return self.make_sentences(retries=retries)
+    def make_sentence(self, retries=10000, threshold=0.9):
+        return self.make_sentences(retries=retries, threshold=threshold)
 
-    def make_sentences(self, count=1, retries=10000):
+    def make_sentences(self, count=1, retries=10000, threshold=0.9):
         self._maybe_build_weighings()
         for retry in range(retries):
             covered_texts = defaultdict(lambda: 0)
             key = random.choice(tuple(self._starts))
-            words = [Word(w, *self._weighings[w.lower()]) for w in key]
+            words = [Word(w, *self._weighings[w.lower()], threshold=threshold)
+                     for w in key]
             for word in words:
                 covered_texts[word.text_id] = max(covered_texts[word.text_id],
                                                   word.intensity)
@@ -161,7 +169,8 @@ class Chain(object):
                     key = random.choice(tuple(self._tuple_to_nxt[key]))
                 except IndexError:
                     break
-                word = Word(key[-1], *self._weighings[key[-1].lower()])
+                word = Word(key[-1], *self._weighings[key[-1].lower()],
+                            threshold=threshold)
                 words += [word]
                 covered_texts[word.text_id] = max(covered_texts[word.text_id],
                                                   word.intensity)
@@ -174,7 +183,7 @@ class Chain(object):
                     sent_count += 1
                     if sent_count == count:
                         if len(list(filter(
-                                lambda x: x > 0.9,
+                                lambda x: x > threshold,
                                 covered_texts.values()))) < len(self._tfs):
                             break
                         return reset(
