@@ -4,7 +4,7 @@ import random
 import re
 from collections import defaultdict
 import pickle
-from builtins import open
+from builtins import len, open
 
 from ansi.colour.rgb import rgb256
 from ansi.colour.fx import reset
@@ -12,12 +12,16 @@ import nltk
 
 
 # this is really ghetto, but that's how `nltk` works... and it escapes venv
-nltk.download('perluniprops')  # noqa
-nltk.download('punkt')  # noqa
-
-
 from nltk import sent_tokenize, word_tokenize
-from nltk.tokenize import moses
+try:
+    word_tokenize('Omg wat.')
+except LookupError:
+    nltk.download('punkt')  # noqa
+try:
+    from nltk.tokenize import moses
+except LookupError:
+    nltk.download('perluniprops')  # noqa
+    from nltk.tokenize import moses
 
 
 # serious shenanigans here -- we want `re.search` to ignore ansi color
@@ -51,7 +55,7 @@ class Word(str):
 
     def colorize(self):
         rgb = [0, 0, 0]
-        if self.intensity < 0.5:
+        if self.intensity < 0.66:
             rgb = [0xaa, 0xaa, 0xaa]
         elif self.intensity < self.threshold:
             rgb = [0x55, 0x55, 0x55]
