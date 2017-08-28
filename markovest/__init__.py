@@ -28,6 +28,7 @@ except LookupError:
 # https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python
 ansi_escape = re.compile(r'\x1b[^m]*m')
 re_search = re.search
+DEFAULT_THRESHOLD = 0.95
 
 
 def re_strip_search(haystack, needle):
@@ -83,12 +84,10 @@ class Chain(object):
         # not-really tf-idf, because it's equally-weighted
         # frequency per document / overall frequency
         self._tfs = []  # per document
-        # inverse *total* frequency
-        # this is normalized by including a phony document that has one of each
-        # possible word
-        self._itf = defaultdict(lambda: 0)
-        # will contain a dict of (doc_id, tf/itf) tuples
-        # tf/itf ranges from 0 to <1
+        # *total* term frequency
+        self._ttf = defaultdict(lambda: 0)
+        # will contain a dict of (doc_id, tf/ttf) tuples
+        # tf/ttf ranges from 0 to <1
         self._weighings = None
 
     def save(self, fname):
@@ -115,7 +114,7 @@ class Chain(object):
                 tf[word] += 1
         for key in tf.keys():
             tf[key] /= total
-            self._itf[key] += tf[key]
+            self._ttf[key] += tf[key]
         self._tfs.append(tf)
 
     def add_text(self, text, text_id=0):
@@ -145,18 +144,19 @@ class Chain(object):
             return
         self._weighings = defaultdict(lambda: (0, 0))
         adjustment = 0.00001
-        for key in self._itf.keys():
-            self._itf[key] += adjustment
-        for key in self._itf.keys():
+        for key in self._ttf.keys():
+            self._ttf[key] += adjustment
+        for key in self._ttf.keys():
             candidates = [self._tfs[i][key] for i in range(len(self._tfs))]
             highest = max(candidates)
             self._weighings[key] = (candidates.index(highest),
-                                    highest/self._itf[key])
+                                    highest/self._ttf[key])
 
-    def make_sentence(self, retries=10000, threshold=0.9):
+    def make_sentence(self, retries=10000, threshold=DEFAULT_THRESHOLD):
         return self.make_sentences(retries=retries, threshold=threshold)
 
-    def make_sentences(self, count=1, retries=10000, threshold=0.9):
+    def make_sentences(self, count=1, retries=10000,
+                       threshold=DEFAULT_THRESHOLD):
         self._maybe_build_weighings()
         for retry in range(retries):
             covered_texts = defaultdict(lambda: 0)
